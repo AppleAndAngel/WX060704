@@ -109,14 +109,16 @@ function handleTimePreview(time: number | null) {
         ← 返回
       </button>
       
-      <div class="flex items-center gap-2" v-if="isOwner && !isDead">
+      <div class="flex items-center gap-2" v-if="isOwner">
         <button
+          v-if="!isDead"
           class="btn-pixel text-diary-fresh border-diary-fresh text-sm"
           @click="goToPipelineEditor"
         >
           ⚙️ 编辑管线
         </button>
         <button
+          v-if="!isDead"
           class="btn-pixel text-sm"
           :class="isFrozen ? 'text-diary-frozen border-diary-frozen' : 'text-gray-400 border-gray-600'"
           @click="toggleFreeze"
@@ -124,11 +126,25 @@ function handleTimePreview(time: number | null) {
           {{ isFrozen ? '❄️ 已冻结' : '🥶 冻结' }}
         </button>
         <button
+          v-if="isDead"
+          class="btn-pixel text-diary-dying border-diary-dying text-sm"
+          @click="handleRewind"
+        >
+          🔄 捞回
+        </button>
+        <button
+          v-if="!isDead"
+          class="btn-pixel text-diary-rotted border-diary-rotted text-sm"
+          @click="handleRewind"
+        >
+          ⏪ 回退
+        </button>
+        <button
           class="btn-pixel text-diary-gold border-diary-gold text-sm"
-          :disabled="isDead || !availableItems.length"
+          :disabled="!availableItems.length"
           @click="showItemSelector = true"
         >
-          🎒 使用道具
+          🎒 {{ isDead ? '🛠️ 维修' : '使用道具' }}
         </button>
       </div>
     </div>
@@ -144,14 +160,14 @@ function handleTimePreview(time: number | null) {
           ></canvas>
         </div>
         
-        <div v-if="isOwner && !isDead" class="mt-4">
+        <div v-if="isOwner" class="mt-4">
           <label class="block font-vt323 text-gray-400 mb-2 text-sm">
-            时间预览: 拖动滑块查看过去或未来的状态
+            {{ isDead ? '时间回溯: 拖动滑块查看过去的状态' : '时间预览: 拖动滑块查看过去或未来的状态' }}
           </label>
           <input
             type="range"
             :min="currentDiary.createdAt - 200"
-            :max="currentDiary.createdAt + 2000"
+            :max="isDead ? currentDiary.createdAt + 1000 : currentDiary.createdAt + 2000"
             :value="previewTime ?? currentDiary.createdAt"
             class="w-full accent-diary-fresh"
             @input="handleTimePreview(Number(($event.target as HTMLInputElement).value))"
@@ -161,7 +177,7 @@ function handleTimePreview(time: number | null) {
           <div class="flex justify-between text-xs text-gray-500 font-vt323 mt-1">
             <span>过去</span>
             <span>{{ previewTime ? `预览时间: ${Math.floor(previewTime)}` : '当前时间' }}</span>
-            <span>未来</span>
+            <span>{{ isDead ? '死亡时间' : '未来' }}</span>
           </div>
         </div>
       </div>

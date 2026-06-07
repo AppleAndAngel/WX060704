@@ -14,14 +14,11 @@ const repairPatchEpic: Item = {
     nightmare: 0.5
   },
   effect: (diary) => {
-    if (diary.state === DiaryState.DEAD) {
-      return diary
-    }
-    
     return {
       ...diary,
       state: DiaryState.FRESH,
-      frozen: false
+      frozen: false,
+      tombstone: undefined
     }
   }
 }

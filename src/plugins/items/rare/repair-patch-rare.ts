@@ -23,7 +23,7 @@ const repairPatchRare: Item = {
     ]
     
     const currentIndex = stateOrder.indexOf(diary.state)
-    if (currentIndex <= 0 || diary.state === DiaryState.DEAD) {
+    if (currentIndex <= 0) {
       return diary
     }
     
@@ -32,7 +32,8 @@ const repairPatchRare: Item = {
     return {
       ...diary,
       state: stateOrder[newIndex],
-      frozen: false
+      frozen: false,
+      tombstone: undefined
     }
   }
 }

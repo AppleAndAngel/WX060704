@@ -41,81 +41,116 @@ export const useDiaryStore = defineStore('diary', () => {
     const userStore = getUserStore()
     await pluginLoader.loadAll()
     
-    if (!userStore.currentUserId || userStore.users.length === 0) return
-    
-    const user = userStore.currentUser
-    if (!user) return
-    
-    const sampleContents = [
-      {
-        title: '第一封情书',
-        type: 'loveLetter',
-        text: '亲爱的你，今天是我们相识的第100天。阳光洒在窗台上，像你微笑时的弧度。我想把这一刻永远保存下来，虽然我知道，时间会带走一切。但至少，在这数字的世界里，我们的故事曾经鲜活过。',
-        pipeline: ['blur', 'wave']
-      },
-      {
-        title: '噩梦记录',
-        type: 'nightmare',
-        text: '昨晚又做了那个梦。无尽的走廊，闪烁的灯光，墙上的文字在我靠近时变成乱码。我跑啊跑，却始终找不到出口。醒来时，枕头已经湿透。我为什么要记录这些？也许记录本身就是一种解脱。',
-        pipeline: ['garble', 'chroma', 'pixelate']
-      },
-      {
-        title: '普通的一天',
-        type: 'base',
-        text: '今天天气很好。早上喝了一杯咖啡，看了几页书。下午去公园散步，看到一只猫在晒太阳。没有什么特别的事情发生，但这样平静的日子，也许就是幸福吧。',
-        pipeline: ['blur', 'chroma']
-      }
-    ]
+    if (userStore.users.length === 0) return
     
     const methods = pluginLoader.getDecayMethods()
     
-    sampleContents.forEach(content => {
-      const diaryType = pluginLoader.getDiaryType(content.type)
-      if (!diaryType) return
-      
-      const pipeline: PipelineStep[] = content.pipeline.map((methodId, index) => {
-        const method = methods.get(methodId)
-        if (!method) return null
-        
-        const params: Record<string, number> = {}
-        Object.entries(method.params).forEach(([key, def]) => {
-          params[key] = def.default
-        })
-        
-        return {
-          methodId,
-          enabled: true,
-          params,
-          order: index
-        }
-      }).filter(Boolean) as PipelineStep[]
-      
-      const sm = new StateMachine()
-      sm.addTransitions(diaryType.transitions)
-      stateMachines.value.set(content.type, sm)
-      
-      const now = globalTimeline.getTime()
-      const diary: Diary = {
-        id: generateId(),
-        ownerId: user.id,
-        type: content.type,
-        title: content.title,
-        content: { text: content.text },
-        state: DS.FRESH,
-        frozen: false,
-        createdAt: now - Math.random() * 200,
-        stateTimestamps: {
-          [DS.FRESH]: now,
-          [DS.ROTTING]: 0,
-          [DS.ROTTED]: 0,
-          [DS.DYING]: 0,
-          [DS.DEAD]: 0
+    const sampleContentsByUser: Record<string, Array<{
+      title: string
+      type: string
+      text: string
+      pipeline: string[]
+      createdAtOffset: number
+    }>> = {
+      '故障收藏家': [
+        {
+          title: '第一封情书',
+          type: 'loveLetter',
+          text: '亲爱的你，今天是我们相识的第100天。阳光洒在窗台上，像你微笑时的弧度。我想把这一刻永远保存下来，虽然我知道，时间会带走一切。但至少，在这数字的世界里，我们的故事曾经鲜活过。',
+          pipeline: ['blur', 'wave'],
+          createdAtOffset: 50
         },
-        pipeline,
-        isPublic: true
-      }
+        {
+          title: '噩梦记录',
+          type: 'nightmare',
+          text: '昨晚又做了那个梦。无尽的走廊，闪烁的灯光，墙上的文字在我靠近时变成乱码。我跑啊跑，却始终找不到出口。醒来时，枕头已经湿透。我为什么要记录这些？也许记录本身就是一种解脱。',
+          pipeline: ['garble', 'chroma', 'pixelate'],
+          createdAtOffset: 150
+        },
+        {
+          title: '普通的一天',
+          type: 'base',
+          text: '今天天气很好。早上喝了一杯咖啡，看了几页书。下午去公园散步，看到一只猫在晒太阳。没有什么特别的事情发生，但这样平静的日子，也许就是幸福吧。',
+          pipeline: ['blur', 'chroma'],
+          createdAtOffset: 30
+        }
+      ],
+      '时间旅人': [
+        {
+          title: '时间旅行日志 #001',
+          type: 'base',
+          text: '我是时间旅人，在时间轴上漫步。今天我访问了2025年的春天，那里的樱花开得很美。我试图记录下这一刻，但我知道，这些文字最终也会在时间的长河中腐烂。',
+          pipeline: ['wave', 'garble'],
+          createdAtOffset: 200
+        },
+        {
+          title: '写给未来的信',
+          type: 'loveLetter',
+          text: '致未来的我：当你读到这封信时，它可能已经面目全非。但请记住，写这封信时的心情是真挚的。时间会改变一切，但有些东西值得被铭记。',
+          pipeline: ['blur', 'chroma'],
+          createdAtOffset: 100
+        },
+        {
+          title: '量子梦境',
+          type: 'nightmare',
+          text: '在量子的世界里，一切可能性同时存在。我梦见自己同时出现在过去和未来，所有的记忆交织在一起，变成了无法辨认的乱码。这就是数字存在的本质吗？',
+          pipeline: ['pixelate', 'garble', 'wave'],
+          createdAtOffset: 800
+        }
+      ]
+    }
+    
+    userStore.users.forEach(user => {
+      const userSamples = sampleContentsByUser[user.name] || sampleContentsByUser['故障收藏家']
       
-      diaries.value.push(diary)
+      userSamples.forEach(content => {
+        const diaryType = pluginLoader.getDiaryType(content.type)
+        if (!diaryType) return
+        
+        const pipeline: PipelineStep[] = content.pipeline.map((methodId, index) => {
+          const method = methods.get(methodId)
+          if (!method) return null
+          
+          const params: Record<string, number> = {}
+          Object.entries(method.params).forEach(([key, def]) => {
+            params[key] = def.default
+          })
+          
+          return {
+            methodId,
+            enabled: true,
+            params,
+            order: index
+          }
+        }).filter(Boolean) as PipelineStep[]
+        
+        const sm = new StateMachine()
+        sm.addTransitions(diaryType.transitions)
+        stateMachines.value.set(content.type, sm)
+        
+        const now = globalTimeline.getTime()
+        const diary: Diary = {
+          id: generateId(),
+          ownerId: user.id,
+          type: content.type,
+          title: content.title,
+          content: { text: content.text },
+          state: DS.FRESH,
+          frozen: false,
+          createdAt: now - content.createdAtOffset,
+          stateTimestamps: {
+            [DS.FRESH]: now,
+            [DS.ROTTING]: 0,
+            [DS.ROTTED]: 0,
+            [DS.DYING]: 0,
+            [DS.DEAD]: 0
+          },
+          pipeline,
+          isPublic: true
+        }
+        
+        diaries.value.push(diary)
+      })
     })
     
     storage.saveDiaries(diaries.value)
@@ -175,7 +210,7 @@ export const useDiaryStore = defineStore('diary', () => {
 
   function toggleFreeze(diaryId: string): void {
     const diary = getDiaryById(diaryId)
-    if (diary && diary.state !== DS.DEAD) {
+    if (diary) {
       updateDiary(diaryId, { frozen: !diary.frozen })
     }
   }

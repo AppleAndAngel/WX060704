@@ -47,7 +47,7 @@ export class StateMachine {
 
   canRewind(diary: Diary): boolean {
     const currentIndex = STATE_ORDER.indexOf(diary.state)
-    return currentIndex > 0 && diary.state !== DiaryState.DEAD
+    return currentIndex > 0
   }
 
   rewindState(diary: Diary, currentTime: number): Diary {

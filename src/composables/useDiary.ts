@@ -1,6 +1,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useDiaryStore } from '@/stores/diary'
 import { useUserStore } from '@/stores/user'
+import { useInventoryStore } from '@/stores/inventory'
 import { renderPipeline } from '@/engine/RenderPipeline'
 import { globalTimeline } from '@/engine/Timeline'
 import { pluginLoader } from '@/engine/PluginLoader'
@@ -137,15 +138,12 @@ export function useDiary(diaryId?: string) {
   function useItem(itemId: string) {
     if (!currentDiary.value || !isOwner.value) return false
     
-    const inventoryStore = useDiaryStore() as any
-    if (inventoryStore.useItem) {
-      const success = inventoryStore.useItem(itemId, currentDiary.value.id)
-      if (success) {
-        loadDiary(currentDiary.value.id)
-      }
-      return success
+    const inventoryStore = useInventoryStore()
+    const success = inventoryStore.useItem(itemId, currentDiary.value.id)
+    if (success) {
+      loadDiary(currentDiary.value.id)
     }
-    return false
+    return success
   }
 
   function checkTransition() {

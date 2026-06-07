@@ -23,14 +23,15 @@ const repairPatchCommon: Item = {
     ]
     
     const currentIndex = stateOrder.indexOf(diary.state)
-    if (currentIndex <= 0 || diary.state === DiaryState.DEAD) {
+    if (currentIndex <= 0) {
       return diary
     }
     
     return {
       ...diary,
       state: stateOrder[currentIndex - 1],
-      frozen: false
+      frozen: false,
+      tombstone: undefined
     }
   }
 }
