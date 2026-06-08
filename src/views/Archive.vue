@@ -92,7 +92,7 @@ const filteredArchives = computed(() => {
 
 const selectedArchive = computed((): ArchivedDiary | null => {
   if (!selectedArchivedId.value) return null
-  return diaryStore.getArchivedById(selectedArchivedId.value) || null
+  return filteredArchives.value.find(ad => ad.id === selectedArchivedId.value) || null
 })
 
 const selectedDiaryType = computed(() => {
@@ -151,6 +151,17 @@ onMounted(async () => {
 watch(selectedArchivedId, () => {
   setTimeout(renderPreview, 50)
 })
+
+watch(filteredArchives, (newArchives) => {
+  if (selectedArchivedId.value) {
+    const stillExists = newArchives.some(ad => ad.id === selectedArchivedId.value)
+    if (!stillExists) {
+      selectedArchivedId.value = newArchives[0]?.id || null
+    }
+  } else if (newArchives.length > 0) {
+    selectedArchivedId.value = newArchives[0].id
+  }
+}, { deep: true })
 
 function handleSelectArchive(archivedId: string) {
   selectedArchivedId.value = archivedId
