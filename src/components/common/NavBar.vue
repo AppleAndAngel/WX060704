@@ -27,6 +27,7 @@ const navItems = computed(() => {
   if (props.isLoggedIn && !props.isVisiting) {
     items.push(
       { path: '/inventory', label: '道具仓库', icon: '🎒' },
+      { path: '/archive', label: '旧档案馆', icon: '🏛️' },
       { path: '/visit', label: '串门', icon: '🚪' },
       { path: '/user', label: '用户中心', icon: '👤' }
     )

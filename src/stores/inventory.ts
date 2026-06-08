@@ -91,7 +91,19 @@ export const useInventoryStore = defineStore('inventory', () => {
     
     const item = pluginLoader.getItem(itemId)
     const diaryStore = useDiaryStore()
-    const diary = diaryStore.getDiaryById(diaryId)
+    
+    let diary = diaryStore.getDiaryById(diaryId)
+    let isArchived = false
+    let archivedId: string | null = null
+    
+    if (!diary) {
+      const archived = diaryStore.archivedDiaries.find(ad => ad.diary.id === diaryId)
+      if (archived) {
+        diary = archived.diary
+        isArchived = true
+        archivedId = archived.id
+      }
+    }
     
     if (!item || !diary) return false
     
@@ -104,7 +116,15 @@ export const useInventoryStore = defineStore('inventory', () => {
     const modifier = diaryType?.itemEffectModifiers[itemId.replace(/_(common|rare|epic)$/, '')] || 1
     
     if (effectiveness * modifier > 0.5) {
-      diaryStore.updateDiary(diaryId, newDiary)
+      if (isArchived && archivedId) {
+        const archived = diaryStore.getArchivedById(archivedId)
+        if (archived) {
+          archived.diary = newDiary
+          storage.saveArchivedDiaries(diaryStore.archivedDiaries)
+        }
+      } else {
+        diaryStore.updateDiary(diaryId, newDiary)
+      }
       return true
     }
     

@@ -141,3 +141,31 @@ export interface InventoryItem {
   itemId: string
   count: number
 }
+
+export enum ArchiveReason {
+  DEAD = 'dead',
+  DELETED = 'deleted'
+}
+
+export const ARCHIVE_REASON_NAMES: Record<ArchiveReason, string> = {
+  [ArchiveReason.DEAD]: '自然死亡',
+  [ArchiveReason.DELETED]: '用户删除'
+}
+
+export interface RepairRecord {
+  timestamp: number
+  itemId: string
+  itemName: string
+  fromState: DiaryState
+  toState: DiaryState
+}
+
+export interface ArchivedDiary {
+  id: string
+  diary: Diary
+  archiveReason: ArchiveReason
+  archivedAt: number
+  lastRepairAt: number | null
+  repairCount: number
+  repairRecords: RepairRecord[]
+}

@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { Diary, DiaryState, PipelineStep } from '@/types'
-import { DiaryState as DS } from '@/types'
+import type { Diary, DiaryState, PipelineStep, ArchivedDiary, ArchiveReason, RepairRecord, User } from '@/types'
+import { DiaryState as DS, ArchiveReason as AR } from '@/types'
 import { storage } from '@/utils/storage'
 import { generateId } from '@/utils/id'
 import { pluginLoader } from '@/engine/PluginLoader'
@@ -20,6 +20,7 @@ const getUserStore = () => {
 
 export const useDiaryStore = defineStore('diary', () => {
   const diaries = ref<Diary[]>([])
+  const archivedDiaries = ref<ArchivedDiary[]>([])
   const stateMachines = ref<Map<string, StateMachine>>(new Map())
 
   const currentUserDiaries = computed(() => {
@@ -28,13 +29,144 @@ export const useDiaryStore = defineStore('diary', () => {
     return diaries.value.filter(d => d.ownerId === userId)
   })
 
+  const currentUserArchivedDiaries = computed(() => {
+    const userStore = getUserStore()
+    const userId = userStore.currentUserId || userStore.visitingUserId
+    return archivedDiaries.value.filter(ad => ad.diary.ownerId === userId)
+  })
+
   function init() {
     diaries.value = storage.getDiaries()
+    archivedDiaries.value = storage.getArchivedDiaries()
     
     const userStore = getUserStore()
-    if (userStore.currentUserId && diaries.value.length === 0) {
+    if (userStore.currentUserId && diaries.value.length === 0 && archivedDiaries.value.length === 0) {
       setTimeout(() => createSampleDiaries(), 100)
     }
+  }
+
+  function archiveDiary(diaryId: string, reason: ArchiveReason): void {
+    const diary = getDiaryById(diaryId)
+    if (!diary) return
+
+    const existingArchive = archivedDiaries.value.find(ad => ad.diary.id === diaryId)
+    if (existingArchive) return
+
+    const now = globalTimeline.getTime()
+    const archivedDiary: ArchivedDiary = {
+      id: generateId(),
+      diary: { ...diary },
+      archiveReason: reason,
+      archivedAt: now,
+      lastRepairAt: null,
+      repairCount: 0,
+      repairRecords: []
+    }
+
+    diaries.value = diaries.value.filter(d => d.id !== diaryId)
+    archivedDiaries.value.push(archivedDiary)
+
+    storage.saveDiaries(diaries.value)
+    storage.saveArchivedDiaries(archivedDiaries.value)
+  }
+
+  function restoreDiary(archivedId: string): Diary | null {
+    const archivedIndex = archivedDiaries.value.findIndex(ad => ad.id === archivedId)
+    if (archivedIndex === -1) return null
+
+    const archived = archivedDiaries.value[archivedIndex]
+    const restoredDiary = { ...archived.diary }
+
+    if (restoredDiary.state === DS.DEAD) {
+      restoredDiary.state = DS.DYING
+      restoredDiary.frozen = false
+    }
+
+    diaries.value.push(restoredDiary)
+    archivedDiaries.value.splice(archivedIndex, 1)
+
+    storage.saveDiaries(diaries.value)
+    storage.saveArchivedDiaries(archivedDiaries.value)
+
+    return restoredDiary
+  }
+
+  function addRepairRecord(archivedId: string, record: Omit<RepairRecord, 'timestamp'>): void {
+    const archived = archivedDiaries.value.find(ad => ad.id === archivedId)
+    if (!archived) return
+
+    const now = globalTimeline.getTime()
+    const fullRecord: RepairRecord = {
+      ...record,
+      timestamp: now
+    }
+
+    archived.repairRecords.push(fullRecord)
+    archived.repairCount++
+    archived.lastRepairAt = now
+
+    storage.saveArchivedDiaries(archivedDiaries.value)
+  }
+
+  function getArchivedById(archivedId: string): ArchivedDiary | undefined {
+    return archivedDiaries.value.find(ad => ad.id === archivedId)
+  }
+
+  function getArchivedDiariesByUser(userId: string): ArchivedDiary[] {
+    return archivedDiaries.value.filter(ad => ad.diary.ownerId === userId)
+  }
+
+  function searchArchivedDiaries(
+    filters: {
+      ownerId?: string
+      diaryType?: string
+      archiveReason?: ArchiveReason
+      archivedBefore?: number
+      archivedAfter?: number
+      repairedBefore?: number
+      repairedAfter?: number
+      keyword?: string
+    } = {}
+  ): ArchivedDiary[] {
+    let results = [...archivedDiaries.value]
+
+    if (filters.ownerId) {
+      results = results.filter(ad => ad.diary.ownerId === filters.ownerId)
+    }
+
+    if (filters.diaryType) {
+      results = results.filter(ad => ad.diary.type === filters.diaryType)
+    }
+
+    if (filters.archiveReason) {
+      results = results.filter(ad => ad.archiveReason === filters.archiveReason)
+    }
+
+    if (filters.archivedBefore !== undefined) {
+      results = results.filter(ad => ad.archivedAt <= filters.archivedBefore!)
+    }
+
+    if (filters.archivedAfter !== undefined) {
+      results = results.filter(ad => ad.archivedAt >= filters.archivedAfter!)
+    }
+
+    if (filters.repairedBefore !== undefined) {
+      results = results.filter(ad => ad.lastRepairAt !== null && ad.lastRepairAt <= filters.repairedBefore!)
+    }
+
+    if (filters.repairedAfter !== undefined) {
+      results = results.filter(ad => ad.lastRepairAt !== null && ad.lastRepairAt >= filters.repairedAfter!)
+    }
+
+    if (filters.keyword) {
+      const keyword = filters.keyword.toLowerCase()
+      results = results.filter(ad =>
+        ad.diary.title.toLowerCase().includes(keyword) ||
+        ad.diary.content.text.toLowerCase().includes(keyword)
+      )
+    }
+
+    return results.sort((a, b) => b.archivedAt - a.archivedAt)
   }
 
   async function createSampleDiaries() {
@@ -100,7 +232,7 @@ export const useDiaryStore = defineStore('diary', () => {
       ]
     }
     
-    userStore.users.forEach(user => {
+    userStore.users.forEach((user: User) => {
       const userSamples = sampleContentsByUser[user.name] || sampleContentsByUser['故障收藏家']
       
       userSamples.forEach(content => {
@@ -200,8 +332,7 @@ export const useDiaryStore = defineStore('diary', () => {
   }
 
   function deleteDiary(diaryId: string): void {
-    diaries.value = diaries.value.filter(d => d.id !== diaryId)
-    storage.saveDiaries(diaries.value)
+    archiveDiary(diaryId, AR.DELETED)
   }
 
   function getDiaryById(diaryId: string): Diary | undefined {
@@ -236,11 +367,15 @@ export const useDiaryStore = defineStore('diary', () => {
       const currentTime = globalTimeline.getTime()
       const newDiary = sm.transition(diary, adjustedElapsed, currentTime)
       
-      if (newDiary.state === DS.DEAD && diaryType.deathEffect) {
-        diaryType.deathEffect(newDiary)
+      if (newDiary.state === DS.DEAD) {
+        if (diaryType.deathEffect) {
+          diaryType.deathEffect(newDiary)
+        }
+        updateDiary(diaryId, newDiary)
+        setTimeout(() => archiveDiary(diaryId, AR.DEAD), 100)
+      } else {
+        updateDiary(diaryId, newDiary)
       }
-      
-      updateDiary(diaryId, newDiary)
     }
   }
 
@@ -284,7 +419,9 @@ export const useDiaryStore = defineStore('diary', () => {
 
   return {
     diaries,
+    archivedDiaries,
     currentUserDiaries,
+    currentUserArchivedDiaries,
     init,
     createDiary,
     updateDiary,
@@ -294,6 +431,12 @@ export const useDiaryStore = defineStore('diary', () => {
     checkAndTransition,
     rewindState,
     getDecayLevel,
-    getDiariesByUser
+    getDiariesByUser,
+    archiveDiary,
+    restoreDiary,
+    addRepairRecord,
+    getArchivedById,
+    getArchivedDiariesByUser,
+    searchArchivedDiaries
   }
 })
