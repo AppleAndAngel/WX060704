@@ -1,7 +1,14 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { Diary, DiaryState, PipelineStep, ArchivedDiary, ArchiveReason, RepairRecord, User } from '@/types'
-import { DiaryState as DS, ArchiveReason as AR } from '@/types'
+import type { 
+  Diary, DiaryState, PipelineStep, ArchivedDiary, ArchiveReason, 
+  RepairRecord, User, GalleryHall, GallerySection, GalleryCategory,
+  Exhibit
+} from '@/types'
+import { 
+  DiaryState as DS, ArchiveReason as AR, 
+  GalleryCategory as GC, TIME_PERIOD_NAMES, TimePeriod 
+} from '@/types'
 import { storage } from '@/utils/storage'
 import { generateId } from '@/utils/id'
 import { pluginLoader } from '@/engine/PluginLoader'
@@ -417,11 +424,202 @@ export const useDiaryStore = defineStore('diary', () => {
     return diaries.value.filter(d => d.ownerId === userId)
   }
 
+  const publicDiaries = computed(() => {
+    return diaries.value.filter(d => d.isPublic && d.state !== DS.DEAD)
+  })
+
+  function getExhibits(diaries: Diary[]): Exhibit[] {
+    const userStore = getUserStore()
+    return diaries.map(diary => {
+      const author = userStore.getUserById(diary.ownerId)
+      return {
+        diary,
+        authorName: author?.name || '匿名作者',
+        authorId: diary.ownerId
+      }
+    })
+  }
+
+  function getTimePeriodFilter(period: TimePeriod): (diary: Diary) => boolean {
+    const now = globalTimeline.getTime()
+    const thresholds: Record<TimePeriod, number> = {
+      [TimePeriod.TODAY]: 100,
+      [TimePeriod.WEEK]: 700,
+      [TimePeriod.MONTH]: 3000,
+      [TimePeriod.SEASON]: 9000,
+      [TimePeriod.YEAR]: 36500,
+      [TimePeriod.ALL]: Infinity
+    }
+    const threshold = thresholds[period]
+    return (diary: Diary) => {
+      const elapsed = now - diary.createdAt
+      return elapsed >= 0 && elapsed < threshold
+    }
+  }
+
+  function buildThemeHall(): GalleryHall {
+    const sections: GallerySection[] = [
+      {
+        id: 'love-letters',
+        name: '情书廊',
+        description: '那些在数字世界中慢慢腐烂的爱意，每一个像素都承载着无法言说的深情。',
+        icon: '💌',
+        category: GC.THEME,
+        filter: (d: Diary) => d.type === 'loveLetter'
+      },
+      {
+        id: 'nightmares',
+        name: '梦魇厅',
+        description: '记录那些令人不安的梦境，在像素破碎处窥视潜意识的深渊。',
+        icon: '🌑',
+        category: GC.THEME,
+        filter: (d: Diary) => d.type === 'nightmare'
+      },
+      {
+        id: 'everyday',
+        name: '日常馆',
+        description: '平凡日子里的点滴记录，时间让这些普通的瞬间也变得珍贵而模糊。',
+        icon: '📅',
+        category: GC.THEME,
+        filter: (d: Diary) => d.type === 'base'
+      }
+    ]
+
+    return {
+      id: 'theme-hall',
+      name: '主题展厅',
+      description: '按日记的情感主题划分，每一个角落都弥漫着不同的情绪色彩。',
+      icon: '🎨',
+      sections
+    }
+  }
+
+  function buildStyleHall(): GalleryHall {
+    const sections: GallerySection[] = [
+      {
+        id: 'blur-gallery',
+        name: '朦胧之境',
+        description: '使用「糊掉」效果的日记，在模糊中寻找记忆的轮廓，如同隔着毛玻璃看过去。',
+        icon: '🌫️',
+        category: GC.STYLE,
+        filter: (d: Diary) => d.pipeline.some(p => p.methodId === 'blur' && p.enabled)
+      },
+      {
+        id: 'wave-gallery',
+        name: '涟漪水域',
+        description: '使用「波浪扭」效果的日记，文字在时间的水面上荡漾，形成美丽的波纹。',
+        icon: '🌊',
+        category: GC.STYLE,
+        filter: (d: Diary) => d.pipeline.some(p => p.methodId === 'wave' && p.enabled)
+      },
+      {
+        id: 'garble-gallery',
+        name: '乱码谜宫',
+        description: '使用「乱码」效果的日记，信息在腐化中变得不可读，却产生了独特的数字诗意。',
+        icon: '🔀',
+        category: GC.STYLE,
+        filter: (d: Diary) => d.pipeline.some(p => p.methodId === 'garble' && p.enabled)
+      },
+      {
+        id: 'chroma-gallery',
+        name: '色散空间',
+        description: '使用「色散」效果的日记，色彩在边缘处分裂，如同数字世界的棱镜折射。',
+        icon: '🌈',
+        category: GC.STYLE,
+        filter: (d: Diary) => d.pipeline.some(p => p.methodId === 'chroma' && p.enabled)
+      },
+      {
+        id: 'pixelate-gallery',
+        name: '像素遗迹',
+        description: '使用「像素化」效果的日记，在低分辨率中找回早期互联网的怀旧美学。',
+        icon: '🧱',
+        category: GC.STYLE,
+        filter: (d: Diary) => d.pipeline.some(p => p.methodId === 'pixelate' && p.enabled)
+      },
+      {
+        id: 'mixed-gallery',
+        name: '复合实验场',
+        description: '融合多种失真效果的日记，展示数字腐朽的无限可能性。',
+        icon: '🔬',
+        category: GC.STYLE,
+        filter: (d: Diary) => d.pipeline.filter(p => p.enabled).length >= 3
+      }
+    ]
+
+    return {
+      id: 'style-hall',
+      name: '风格展厅',
+      description: '按失真风格划分的展区，每一种腐化方式都是一门独特的数字艺术。',
+      icon: '✨',
+      sections
+    }
+  }
+
+  function buildTimeHall(): GalleryHall {
+    const periods: TimePeriod[] = [
+      TimePeriod.TODAY,
+      TimePeriod.WEEK,
+      TimePeriod.MONTH,
+      TimePeriod.SEASON,
+      TimePeriod.YEAR,
+      TimePeriod.ALL
+    ]
+
+    const periodDescriptions: Record<TimePeriod, string> = {
+      [TimePeriod.TODAY]: '新鲜出炉的日记，还带着数字温度。此刻的真实，尚未被时间侵蚀。',
+      [TimePeriod.WEEK]: '这一周的精选，开始显现出微妙的腐朽痕迹。',
+      [TimePeriod.MONTH]: '一个月的沉淀，日记已染上时间的质感。',
+      [TimePeriod.SEASON]: '季节更替中的记录，见证了时光的流转。',
+      [TimePeriod.YEAR]: '经过一年时间洗礼的珍藏，大部分已面目全非，却更显珍贵。',
+      [TimePeriod.ALL]: '所有时光的集合，从新鲜到腐朽的完整生命周期。'
+    }
+
+    const periodIcons: Record<TimePeriod, string> = {
+      [TimePeriod.TODAY]: '🌅',
+      [TimePeriod.WEEK]: '🌤️',
+      [TimePeriod.MONTH]: '🌙',
+      [TimePeriod.SEASON]: '🍂',
+      [TimePeriod.YEAR]: '⌛',
+      [TimePeriod.ALL]: '🌀'
+    }
+
+    const sections: GallerySection[] = periods.map(period => ({
+      id: `time-${period}`,
+      name: TIME_PERIOD_NAMES[period],
+      description: periodDescriptions[period],
+      icon: periodIcons[period],
+      category: GC.TIME,
+      filter: getTimePeriodFilter(period)
+    }))
+
+    return {
+      id: 'time-hall',
+      name: '时间展厅',
+      description: '沿时间轴展开的展区，见证数字存在从鲜活到腐朽的完整旅程。',
+      icon: '⏰',
+      sections
+    }
+  }
+
+  function getGalleryHalls(): GalleryHall[] {
+    return [
+      buildThemeHall(),
+      buildStyleHall(),
+      buildTimeHall()
+    ]
+  }
+
+  function getExhibitsBySection(section: GallerySection): Exhibit[] {
+    const filtered = publicDiaries.value.filter(section.filter)
+    return getExhibits(filtered).sort((a, b) => b.diary.createdAt - a.diary.createdAt)
+  }
+
   return {
     diaries,
     archivedDiaries,
     currentUserDiaries,
     currentUserArchivedDiaries,
+    publicDiaries,
     init,
     createDiary,
     updateDiary,
@@ -437,6 +635,9 @@ export const useDiaryStore = defineStore('diary', () => {
     addRepairRecord,
     getArchivedById,
     getArchivedDiariesByUser,
-    searchArchivedDiaries
+    searchArchivedDiaries,
+    getGalleryHalls,
+    getExhibitsBySection,
+    getExhibits
   }
 })

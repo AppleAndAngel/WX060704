@@ -21,13 +21,14 @@ const route = useRoute()
 
 const navItems = computed(() => {
   const items = [
-    { path: '/', label: '日记墙', icon: '📒' }
+    { path: '/', label: '日记墙', icon: '📒' },
+    { path: '/gallery', label: '展陈馆', icon: '🏛️' }
   ]
   
   if (props.isLoggedIn && !props.isVisiting) {
     items.push(
       { path: '/inventory', label: '道具仓库', icon: '🎒' },
-      { path: '/archive', label: '旧档案馆', icon: '🏛️' },
+      { path: '/archive', label: '旧档案馆', icon: '📜' },
       { path: '/visit', label: '串门', icon: '🚪' },
       { path: '/user', label: '用户中心', icon: '👤' }
     )
@@ -39,6 +40,9 @@ const navItems = computed(() => {
 function isActive(path: string): boolean {
   if (path === '/') {
     return route.path === '/' || route.path.startsWith('/visit/')
+  }
+  if (path === '/gallery') {
+    return route.path === '/gallery'
   }
   return route.path === path
 }

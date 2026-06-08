@@ -169,3 +169,56 @@ export interface ArchivedDiary {
   repairCount: number
   repairRecords: RepairRecord[]
 }
+
+export enum GalleryCategory {
+  THEME = 'theme',
+  STYLE = 'style',
+  TIME = 'time'
+}
+
+export const GALLERY_CATEGORY_NAMES: Record<GalleryCategory, string> = {
+  [GalleryCategory.THEME]: '主题展厅',
+  [GalleryCategory.STYLE]: '风格展厅',
+  [GalleryCategory.TIME]: '时间展厅'
+}
+
+export interface GallerySection {
+  id: string
+  name: string
+  description: string
+  icon: string
+  category: GalleryCategory
+  filter: (diary: Diary) => boolean
+}
+
+export interface GalleryHall {
+  id: string
+  name: string
+  description: string
+  icon: string
+  sections: GallerySection[]
+}
+
+export interface Exhibit {
+  diary: Diary
+  authorName: string
+  authorId: string
+}
+
+export enum TimePeriod {
+  TODAY = 'today',
+  WEEK = 'week',
+  MONTH = 'month',
+  SEASON = 'season',
+  YEAR = 'year',
+  ALL = 'all'
+}
+
+export const TIME_PERIOD_NAMES: Record<TimePeriod, string> = {
+  [TimePeriod.TODAY]: '今日展品',
+  [TimePeriod.WEEK]: '本周新品',
+  [TimePeriod.MONTH]: '本月精选',
+  [TimePeriod.SEASON]: '季度典藏',
+  [TimePeriod.YEAR]: '年度珍藏',
+  [TimePeriod.ALL]: '全部时光'
+}
