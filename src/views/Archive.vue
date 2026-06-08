@@ -81,9 +81,10 @@ const filteredArchives = computed(() => {
   }
 
   const userStore = useUserStore()
-  const userId = userStore.currentUserId || userStore.visitingUserId
-  if (userId) {
-    filters.ownerId = userId
+  if (userStore.visitingUserId) {
+    filters.ownerId = userStore.visitingUserId
+  } else if (!filters.ownerId && userStore.currentUserId) {
+    filters.ownerId = userStore.currentUserId
   }
 
   return diaryStore.searchArchivedDiaries(filters)

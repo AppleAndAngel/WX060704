@@ -7,6 +7,7 @@ import { renderPipeline } from '@/engine/RenderPipeline'
 import { globalTimeline } from '@/engine/Timeline'
 import { pluginLoader } from '@/engine/PluginLoader'
 import { StateMachine } from '@/engine/StateMachine'
+import { useDiaryStore } from '@/stores/diary'
 
 interface Props {
   diary: Diary
@@ -15,9 +16,11 @@ interface Props {
 
 const props = defineProps<Props>()
 const router = useRouter()
+const diaryStore = useDiaryStore()
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const isHovered = ref(false)
+const showDeleteConfirm = ref(false)
 const stateMachine = new StateMachine()
 
 const stateColor = computed(() => STATE_COLORS[props.diary.state])
@@ -82,6 +85,22 @@ watch(() => props.diary, () => {
 function goToDetail() {
   router.push(`/diary/${props.diary.id}`)
 }
+
+function handleDelete(e: Event) {
+  e.stopPropagation()
+  diaryStore.deleteDiary(props.diary.id)
+  showDeleteConfirm.value = false
+}
+
+function openDeleteConfirm(e: Event) {
+  e.stopPropagation()
+  showDeleteConfirm.value = true
+}
+
+function closeDeleteConfirm(e: Event) {
+  e.stopPropagation()
+  showDeleteConfirm.value = false
+}
 </script>
 
 <template>
@@ -139,6 +158,43 @@ function goToDetail() {
         <span class="font-vt323">
           管线: {{ diary.pipeline.filter(p => p.enabled).length }} 种
         </span>
+      </div>
+      
+      <div v-if="isOwner" class="mt-2 pt-2 border-t border-gray-800">
+        <button
+          class="w-full btn-pixel text-red-500 border-red-500 text-xs opacity-60 hover:opacity-100 transition-opacity"
+          @click.stop="openDeleteConfirm"
+        >
+          🗑️ 移入档案馆
+        </button>
+      </div>
+    </div>
+
+    <div v-if="showDeleteConfirm" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" @click.stop="closeDeleteConfirm">
+      <div class="bg-gray-900 rounded-lg border-2 border-red-500 w-full max-w-sm" @click.stop>
+        <div class="p-6">
+          <h3 class="font-vt323 text-xl text-red-500 mb-4">
+            🗑️ 确认移入档案馆
+          </h3>
+          <p class="text-gray-300 font-vt323 mb-6 text-sm">
+            确定要将「{{ diary.title }}」移入旧档案馆吗？<br/>
+            日记将被标记为「用户删除」并存档，你可以随时在旧档案馆中查看或恢复。
+          </p>
+          <div class="flex gap-3">
+            <button
+              class="flex-1 btn-pixel text-gray-400 border-gray-600 text-sm"
+              @click.stop="closeDeleteConfirm"
+            >
+              取消
+            </button>
+            <button
+              class="flex-1 btn-pixel text-red-500 border-red-500 text-sm"
+              @click.stop="handleDelete"
+            >
+              确认移入
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </div>

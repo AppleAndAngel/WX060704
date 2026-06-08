@@ -32,6 +32,7 @@ const { itemsByRarity, useItem } = useItems()
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const showItemSelector = ref(false)
+const showDeleteConfirm = ref(false)
 const itemTargetDiaryId = ref<string | null>(null)
 const previewTime = ref<number | null>(null)
 
@@ -97,6 +98,13 @@ function goBack() {
 function handleTimePreview(time: number | null) {
   previewTime.value = time
 }
+
+function handleDelete() {
+  if (!currentDiary.value) return
+  diaryStore.deleteDiary(currentDiary.value.id)
+  showDeleteConfirm.value = false
+  router.push('/archive')
+}
 </script>
 
 <template>
@@ -145,6 +153,12 @@ function handleTimePreview(time: number | null) {
           @click="showItemSelector = true"
         >
           🎒 {{ isDead ? '🛠️ 维修' : '使用道具' }}
+        </button>
+        <button
+          class="btn-pixel text-red-500 border-red-500 text-sm"
+          @click="showDeleteConfirm = true"
+        >
+          🗑️ 移入档案馆
         </button>
       </div>
     </div>
@@ -330,6 +344,34 @@ function handleTimePreview(time: number | null) {
                 <div class="font-vt323 text-lg">x{{ count }}</div>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="showDeleteConfirm" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+      <div class="bg-gray-900 rounded-lg border-2 border-red-500 w-full max-w-md">
+        <div class="p-6">
+          <h3 class="font-vt323 text-xl text-red-500 mb-4">
+            🗑️ 确认移入档案馆
+          </h3>
+          <p class="text-gray-300 font-vt323 mb-6">
+            确定要将「{{ currentDiary?.title }}」移入旧档案馆吗？<br/>
+            日记将被标记为「用户删除」并存档，你可以随时在旧档案馆中查看或恢复。
+          </p>
+          <div class="flex gap-3">
+            <button
+              class="flex-1 btn-pixel text-gray-400 border-gray-600"
+              @click="showDeleteConfirm = false"
+            >
+              取消
+            </button>
+            <button
+              class="flex-1 btn-pixel text-red-500 border-red-500"
+              @click="handleDelete"
+            >
+              确认移入
+            </button>
           </div>
         </div>
       </div>
